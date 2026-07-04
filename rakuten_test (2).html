@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>楽天APIテスト</title>
+</head>
+<body>
+  <h1>楽天APIテストページ</h1>
+  <button id="btn">1045542858198181306</button>
+  <pre id="result"></pre>
+
+<script>
+document.getElementById("btn").onclick = async () => {
+  const url = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706"
+    + "?applicationId=YOUR_APP_ID"
+    + "&keyword=テスト"
+    + "&format=json";
+
+  const res = await fetch(url);
+  const data = await res.json();
+  document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+};
+</script>
+
+</body>
+</html>
