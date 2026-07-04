@@ -2,21 +2,25 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>楽天APIテスト</title>
+  <title>楽天API（新API）テスト</title>
 </head>
 <body>
-  <h1>楽天APIテストページ</h1>
+  <h1>楽天API（新API）テストページ</h1>
   <button id="btn">楽天APIを呼び出す</button>
   <pre id="result"></pre>
 
 <script>
 document.getElementById("btn").onclick = async () => {
-  const url = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20170706"
-    + "?applicationId=a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd"
-    + "&keyword=テスト"
-    + "&format=json";
 
-  const res = await fetch(url);
+  const url = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20240222"
+    + "?keyword=テスト";
+
+  const res = await fetch(url, {
+    headers: {
+      "Authorization": "Bearer a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd"
+    }
+  });
+
   const data = await res.json();
   document.getElementById("result").textContent = JSON.stringify(data, null, 2);
 };
