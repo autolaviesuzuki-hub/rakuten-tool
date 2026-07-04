@@ -12,12 +12,12 @@
 <script>
 document.getElementById("btn").onclick = async () => {
 
-  const url = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20240222"
-    + "?keyword=テスト";
+  const url = "https://rakuten-marketplace.p.rapidapi.com/item-search?keyword=テスト";
 
   const res = await fetch(url, {
     headers: {
-      "Authorization": "Bearer a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd"
+      "X-RapidAPI-Key": "あなたのAPIキー",
+      "X-RapidAPI-Host": "rakuten-marketplace.p.rapidapi.com"
     }
   });
 
