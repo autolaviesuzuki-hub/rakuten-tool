@@ -59,7 +59,7 @@ async function searchRakutenAll() {
       }
     }
 
-    // 特定ショップ（旧形式）
+    // 特定ショップでヒットした商品を探す
     let targetHit = null;
     for (const shop of TARGET_SHOPS) {
       const hit = items.find(it => it.shop.includes(shop));
@@ -79,11 +79,13 @@ async function searchRakutenAll() {
       model: m.model,
       size: m.size,
 
+      // 特定ショップでヒットした場合だけ返す
       shop: targetHit ? targetHit.shop : null,
       title: targetHit ? targetHit.title : null,
       price: targetHit ? targetHit.price : null,
       url: targetHit ? targetHit.url : null,
 
+      // TOP3（旧形式）
       top3: top3
     });
   }
