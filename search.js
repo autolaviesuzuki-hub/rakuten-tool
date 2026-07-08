@@ -59,7 +59,7 @@ async function searchRakutenAll() {
       }
     }
 
-    // 特定ショップ判定（旧形式）
+    // 特定ショップ（旧形式）
     let targetHit = null;
     for (const shop of TARGET_SHOPS) {
       const hit = items.find(it => it.shop.includes(shop));
@@ -69,7 +69,7 @@ async function searchRakutenAll() {
       }
     }
 
-    // 指定外 TOP3（旧形式）
+    // TOP3（旧形式）
     const top3 = items
       .sort((a, b) => a.price - b.price)
       .slice(0, 3);
@@ -79,13 +79,11 @@ async function searchRakutenAll() {
       model: m.model,
       size: m.size,
 
-      // 特定ショップ（旧形式）
       shop: targetHit ? targetHit.shop : null,
       title: targetHit ? targetHit.title : null,
       price: targetHit ? targetHit.price : null,
       url: targetHit ? targetHit.url : null,
 
-      // TOP3（旧形式）
       top3: top3
     });
   }
