@@ -1,6 +1,3 @@
-// ===============================
-// 指定ショップ（部分一致）
-// ===============================
 const TARGET_SHOPS = [
   "NIKE",
   "Xebio",
@@ -14,21 +11,10 @@ const TARGET_SHOPS = [
   "Himaraya"
 ];
 
-// ===============================
-// 楽天検索URL生成
-// ===============================
-function makeRakutenSearchUrl(model, shop) {
-  return `https://search.rakuten.co.jp/search/mall/${encodeURIComponent(model + " " + shop)}/`;
-}
-
-// ===============================
-// メイン処理
-// ===============================
 async function searchRakutenAll() {
   const applicationId = "a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd";
   const accessKey = "pk_oRPj9UEOAjvjnUtRwKwaje85mgY98Nzo7rzvGf7sQRj";
 
-  // models.json 読み込み
   const models = await fetch("models.json").then(r => r.json());
   let allResults = [];
 
@@ -61,11 +47,7 @@ async function searchRakutenAll() {
 
         for (const it of list) {
           const item = it.Item;
-
           items.push({
-            asin: m.asin,
-            model: m.model,
-            size: m.size,
             shop: item.shopName,
             title: item.itemName,
             price: item.itemPrice,
@@ -77,51 +59,37 @@ async function searchRakutenAll() {
       }
     }
 
-    // ===============================
-    // 指定ショップ判定
-    // ===============================
-    const shopResults = {};
+    // 特定ショップ判定（旧形式）
+    let targetHit = null;
     for (const shop of TARGET_SHOPS) {
-      const hit = items.filter(it => it.shop.includes(shop));
-      if (hit.length > 0) {
-        shopResults[shop] = {
-          status: "hit",
-          item: hit[0], // 最安値（sort済み）
-          searchUrl: makeRakutenSearchUrl(m.model, shop)
-        };
-      } else {
-        shopResults[shop] = {
-          status: "none",
-          item: null,
-          searchUrl: null
-        };
+      const hit = items.find(it => it.shop.includes(shop));
+      if (hit) {
+        targetHit = hit;
+        break;
       }
     }
 
-    // ===============================
-    // 指定外 TOP3
-    // ===============================
-    const sorted = items.sort((a, b) => a.price - b.price);
-    const top3 = sorted.slice(0, 3).map(it => ({
-      ...it,
-      searchUrl: makeRakutenSearchUrl(m.model, it.shop)
-    }));
+    // 指定外 TOP3（旧形式）
+    const top3 = items
+      .sort((a, b) => a.price - b.price)
+      .slice(0, 3);
 
-    // ===============================
-    // 全体結果に追加
-    // ===============================
     allResults.push({
       asin: m.asin,
       model: m.model,
       size: m.size,
-      shops: shopResults,
+
+      // 特定ショップ（旧形式）
+      shop: targetHit ? targetHit.shop : null,
+      title: targetHit ? targetHit.title : null,
+      price: targetHit ? targetHit.price : null,
+      url: targetHit ? targetHit.url : null,
+
+      // TOP3（旧形式）
       top3: top3
     });
   }
 
-  // ===============================
-  // JSON ダウンロード
-  // ===============================
   const blob = new Blob([JSON.stringify(allResults, null, 2)], {
     type: "application/json"
   });
