@@ -1,27 +1,4 @@
 // ===============================
-// 特定ショップ（ゆるい判定）
-// ===============================
-const TARGET_SHOPS = [
-  "NIKE",
-  "nike",
-  "Victoria",
-  "ヴィクトリア",
-  "Xebio",
-  "ゼビオ",
-  "アルペン",
-  "Alpen",
-  "スポーツデポ",
-  "ヒマラヤ",
-  "Himaraya",
-  "ABC",
-  "ABCMart",
-  "ABC-MART",
-  "アネックス",
-  "OnStep",
-  "ブランド古着",
-];
-
-// ===============================
 // 中古品判定（除外）
 // ===============================
 function isUsed(itemName) {
@@ -30,7 +7,7 @@ function isUsed(itemName) {
 }
 
 // ===============================
-// 楽天検索
+// 楽天検索（TOP3返却・特定ショップ判定なし）
 // ===============================
 async function searchRakutenAll() {
   const applicationId = "a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd";
@@ -88,28 +65,10 @@ async function searchRakutenAll() {
     }
 
     // ===============================
-    // 特定ショップ判定（ゆるい）
+    // TOP3（最安値順）
     // ===============================
-    let targetHit = null;
-    for (const shopKey of TARGET_SHOPS) {
-      const hit = items.find(it => it.shop.includes(shopKey));
-      if (hit) {
-        targetHit = hit;
-        break;
-      }
-    }
-
-    // ===============================
-    // 特定ショップ非ヒット → TOP1（最安値）
-    // ===============================
-    let finalResult = null;
-
-    if (targetHit) {
-      finalResult = targetHit;
-    } else {
-      const sorted = items.sort((a, b) => a.price - b.price);
-      finalResult = sorted[0] || null;
-    }
+    const sorted = items.sort((a, b) => a.price - b.price);
+    const top3 = sorted.slice(0, 3);
 
     // ===============================
     // JSON 出力形式（Python が読み込める旧形式）
@@ -119,10 +78,14 @@ async function searchRakutenAll() {
       model: m.model,
       size: m.size,
 
-      shop: finalResult ? finalResult.shop : null,
-      title: finalResult ? finalResult.title : null,
-      price: finalResult ? finalResult.price : null,
-      url: finalResult ? finalResult.url : null
+      // TOP1（最安値）
+      shop: top3[0] ? top3[0].shop : null,
+      title: top3[0] ? top3[0].title : null,
+      price: top3[0] ? top3[0].price : null,
+      url: top3[0] ? top3[0].url : null,
+
+      // TOP3（配列）
+      top3: top3
     });
   }
 
