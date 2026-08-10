@@ -54,17 +54,26 @@ async function searchRakutenAll() {
   let allResults = [];
 
   for (const m of models) {
+
+    // ===============================
+    // keyword を増やしてヒット率最大化
+    // ===============================
     const keywords = [
       m.model,
       m.model.replace("-", ""),
       m.model.replace("-", " "),
+      m.model.replace("-", "　"),
+      `ナイキ ${m.model}`,
+      `NIKE ${m.model}`,
+      m.model.replace("-", " "),
+      m.model.replace("-", ""),
       m.model.replace("-", "　")
     ];
 
     let items = [];
 
     // ===============================
-    // 楽天API検索
+    // 楽天API検索（hits=100）
     // ===============================
     for (const kw of keywords) {
       const url =
@@ -72,7 +81,7 @@ async function searchRakutenAll() {
         + "?applicationId=" + applicationId
         + "&accessKey=" + accessKey
         + "&keyword=" + encodeURIComponent(kw)
-        + "&hits=30"
+        + "&hits=100"
         + "&format=json"
         + "&sort=%2BitemPrice";
 
@@ -114,7 +123,7 @@ async function searchRakutenAll() {
     }
 
     // ===============================
-    // 特定ショップ非ヒット → TOP3
+    // TOP3（最安値順）
     // ===============================
     const sorted = items.sort((a, b) => a.price - b.price);
     const top3 = sorted.slice(0, 3);
