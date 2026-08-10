@@ -1,5 +1,5 @@
 // ===============================
-// 特定ショップ（拡張版）
+// 特定ショップ（新API対応・拡張版）
 // ===============================
 const TARGET_SHOPS = [
   // NIKE公式
@@ -45,7 +45,7 @@ function isUsed(itemName) {
 }
 
 // ===============================
-// 楽天検索
+// 楽天検索（新API対応）
 // ===============================
 async function searchRakutenAll() {
   const applicationId = "a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd";
@@ -57,21 +57,21 @@ async function searchRakutenAll() {
   for (const m of models) {
 
     // ===============================
-    // keyword を増やしてヒット率最大化
+    // 新API向け keyword（型番の揺れ＋ブランド名）
     // ===============================
     const keywords = [
-      m.model,
-      m.model.replace("-", ""),
-      m.model.replace("-", " "),
-      m.model.replace("-", "　"),
-      `ナイキ ${m.model}`,
-      `NIKE ${m.model}`
+      m.model,                                 // DC1460-007
+      m.model.replace("-", ""),                // DC1460007
+      m.model.replace("-", " "),               // DC1460 007
+      m.model.replace("-", "　"),              // DC1460　007
+      `ナイキ ${m.model}`,                     // ナイキ DC1460-007
+      `NIKE ${m.model}`                        // NIKE DC1460-007
     ];
 
     let items = [];
 
     // ===============================
-    // 楽天API検索（hits=100）
+    // 新API検索（hits=30 が最も安定）
     // ===============================
     for (const kw of keywords) {
       const url =
@@ -79,7 +79,7 @@ async function searchRakutenAll() {
         + "?applicationId=" + applicationId
         + "&accessKey=" + accessKey
         + "&keyword=" + encodeURIComponent(kw)
-        + "&hits=100"
+        + "&hits=30"
         + "&format=json"
         + "&sort=%2BitemPrice";
 
