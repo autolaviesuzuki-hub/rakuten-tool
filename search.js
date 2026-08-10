@@ -7,6 +7,7 @@ const TARGET_SHOPS = [
 
   // Xebio
   "Xebio", "ゼビオ", "Super Sports XEBIO", "スーパースポーツゼビオ",
+  "スポーツゼビオ", "supersportsxebio",
 
   // Victoria 系
   "Victoria", "ヴィクトリア",
@@ -64,10 +65,7 @@ async function searchRakutenAll() {
       m.model.replace("-", " "),
       m.model.replace("-", "　"),
       `ナイキ ${m.model}`,
-      `NIKE ${m.model}`,
-      m.model.replace("-", " "),
-      m.model.replace("-", ""),
-      m.model.replace("-", "　")
+      `NIKE ${m.model}`
     ];
 
     let items = [];
@@ -111,7 +109,7 @@ async function searchRakutenAll() {
     }
 
     // ===============================
-    // 特定ショップ判定（拡張版）
+    // 特定ショップ判定（items 全体に対して）
     // ===============================
     let targetHit = null;
     for (const shopKey of TARGET_SHOPS) {
@@ -128,6 +126,9 @@ async function searchRakutenAll() {
     const sorted = items.sort((a, b) => a.price - b.price);
     const top3 = sorted.slice(0, 3);
 
+    // ===============================
+    // 特定ショップがあれば最優先
+    // ===============================
     const finalResult = targetHit || top3[0] || null;
 
     // ===============================
