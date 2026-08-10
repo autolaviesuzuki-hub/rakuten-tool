@@ -1,24 +1,38 @@
 // ===============================
-// 特定ショップ（ゆるい判定）
+// 特定ショップ（拡張版）
 // ===============================
 const TARGET_SHOPS = [
-  "NIKE",
-  "nike",
-  "Victoria",
-  "ヴィクトリア",
-  "Xebio",
-  "ゼビオ",
-  "アルペン",
-  "Alpen",
-  "スポーツデポ",
-  "ヒマラヤ",
-  "Himaraya",
-  "ABC",
-  "ABCMart",
-  "ABC-MART",
-  "アネックス",
+  // NIKE公式
+  "NIKE", "nike", "NIKE 公式", "NIKE 公式 楽天市場店", "nike-official",
+
+  // Xebio
+  "Xebio", "ゼビオ", "Super Sports XEBIO", "スーパースポーツゼビオ",
+
+  // Victoria 系
+  "Victoria", "ヴィクトリア",
+  "Victoria Surf&Snow", "Victoria L-Breath", "Victoria Golf",
+  "Victoria 楽天市場支店",
+
+  // アルペン系
+  "アルペン", "Alpen", "アルペン楽天市場店",
+  "スポーツデポ", "Sports Depot", "スポーツデポ楽天市場店",
+
+  // ヒマラヤ系
+  "ヒマラヤ", "Himaraya",
+  "ヒマラヤ楽天市場店", "ヒマラヤアウトドア専門店",
+
+  // ABC-MART系
+  "ABC", "ABCMart", "ABC-MART", "ABC-MART楽天市場店",
+
+  // アネックススポーツ
+  "アネックス", "アネックススポーツ",
+
+  // OnStep
   "OnStep",
-  "ブランド古着",
+
+  // ブランド古着ベクトル系
+  "ブランド古着", "ベクトル",
+  "ブランド古着ベクトル", "ブランド古着ベクトルプレミアム店"
 ];
 
 // ===============================
@@ -50,7 +64,7 @@ async function searchRakutenAll() {
     let items = [];
 
     // ===============================
-    // 楽天API検索（複数キーワード）
+    // 楽天API検索
     // ===============================
     for (const kw of keywords) {
       const url =
@@ -88,7 +102,7 @@ async function searchRakutenAll() {
     }
 
     // ===============================
-    // 特定ショップ判定（ゆるい）
+    // 特定ショップ判定（拡張版）
     // ===============================
     let targetHit = null;
     for (const shopKey of TARGET_SHOPS) {
@@ -100,16 +114,12 @@ async function searchRakutenAll() {
     }
 
     // ===============================
-    // 特定ショップ非ヒット → TOP1（最安値）
+    // 特定ショップ非ヒット → TOP3
     // ===============================
-    let finalResult = null;
+    const sorted = items.sort((a, b) => a.price - b.price);
+    const top3 = sorted.slice(0, 3);
 
-    if (targetHit) {
-      finalResult = targetHit;
-    } else {
-      const sorted = items.sort((a, b) => a.price - b.price);
-      finalResult = sorted[0] || null;
-    }
+    const finalResult = targetHit || top3[0] || null;
 
     // ===============================
     // JSON 出力形式（Python が読み込める旧形式）
@@ -122,7 +132,9 @@ async function searchRakutenAll() {
       shop: finalResult ? finalResult.shop : null,
       title: finalResult ? finalResult.title : null,
       price: finalResult ? finalResult.price : null,
-      url: finalResult ? finalResult.url : null
+      url: finalResult ? finalResult.url : null,
+
+      top3: top3
     });
   }
 
