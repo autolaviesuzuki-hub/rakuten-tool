@@ -51,7 +51,7 @@ async function tryItemCodeSearch(modelEntry) {
 }
 
 // ===============================
-// 型番検索（429対策版）
+// 型番検索（429完全対策版：キュー方式）
 // ===============================
 function buildUrl(keyword) {
   return (
@@ -68,33 +68,30 @@ function buildUrl(keyword) {
 async function searchByModel(model) {
 
   // 429対策：キーワードは1回だけ
-  const keywords = [model];
+  const keyword = model;
+
+  // 429完全対策：待機時間を増やす
+  await sleep(800);
+
+  const res = await fetch(buildUrl(keyword));
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const list = data.Items || [];
 
   let items = [];
 
-  for (const kw of keywords) {
+  for (const it of list) {
+    const item = it.Item;
 
-    // 429対策：API呼び出し間に待機
-    await sleep(500);
+    if (isUsed(item.itemName)) continue;
 
-    const res = await fetch(buildUrl(kw));
-    if (!res.ok) continue;
-
-    const data = await res.json();
-    const list = data.Items || [];
-
-    for (const it of list) {
-      const item = it.Item;
-
-      if (isUsed(item.itemName)) continue;
-
-      items.push({
-        shop: item.shopName,
-        title: item.itemName,
-        price: item.itemPrice,
-        url: item.itemUrl
-      });
-    }
+    items.push({
+      shop: item.shopName,
+      title: item.itemName,
+      price: item.itemPrice,
+      url: item.itemUrl
+    });
   }
 
   return items;
@@ -135,7 +132,7 @@ function extractTop3(items) {
 }
 
 // ===============================
-// メイン処理：searchRakutenAll（完全版）
+// メイン処理：searchRakutenAll（429完全対策版）
 // ===============================
 async function searchRakutenAll() {
 
@@ -147,7 +144,7 @@ async function searchRakutenAll() {
     // ① itemCode検索（最優先）
     let items = await tryItemCodeSearch(m);
 
-    // ② 型番検索（429対策済み）
+    // ② itemCode検索が失敗したモデルだけ型番検索
     if (!items) {
       items = await searchByModel(m.model);
     }
