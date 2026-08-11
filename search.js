@@ -1,5 +1,5 @@
 // ===============================
-// APIキー
+// Rakuten API Keys
 // ===============================
 const applicationId = "a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd";
 const accessKey = "pk_oRPj9UEOAjvjnUtRwKwaje85mgY98Nzo7rzvGf7sQRj";
@@ -9,6 +9,13 @@ const accessKey = "pk_oRPj9UEOAjvjnUtRwKwaje85mgY98Nzo7rzvGf7sQRj";
 // ===============================
 async function loadModels() {
   return await fetch("models.json").then(r => r.json());
+}
+
+// ===============================
+// 429対策：軽い待機
+// ===============================
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // ===============================
@@ -44,7 +51,7 @@ async function tryItemCodeSearch(modelEntry) {
 }
 
 // ===============================
-// 型番検索（高速化版）
+// 型番検索（高速化＋429対策）
 // ===============================
 function buildUrl(keyword) {
   return (
@@ -59,18 +66,18 @@ function buildUrl(keyword) {
 }
 
 async function searchByModel(model) {
-  const keywords = [
-    model,
-    model.replace("-", ""),
-    `NIKE ${model}`
-  ];
 
-  const promises = keywords.map(kw => fetch(buildUrl(kw)));
-  const responses = await Promise.all(promises);
+  // 429対策：キーワードは1回だけ
+  const keywords = [model];
 
   let items = [];
 
-  for (const res of responses) {
+  for (const kw of keywords) {
+
+    // 429対策：API呼び出し間に待機
+    await sleep(200);
+
+    const res = await fetch(buildUrl(kw));
     if (!res.ok) continue;
 
     const data = await res.json();
@@ -128,7 +135,7 @@ function extractTop3(items) {
 }
 
 // ===============================
-// searchRakutenAll（高速化版）
+// メイン処理：searchRakutenAll（完全版）
 // ===============================
 async function searchRakutenAll() {
 
@@ -137,10 +144,10 @@ async function searchRakutenAll() {
 
   for (const m of models) {
 
-    // ① itemCode検索
+    // ① itemCode検索（最優先）
     let items = await tryItemCodeSearch(m);
 
-    // ② 型番検索（並列化）
+    // ② 型番検索（429対策済み）
     if (!items) {
       items = await searchByModel(m.model);
     }
@@ -166,27 +173,25 @@ async function searchRakutenAll() {
     });
   }
 
-// JSONダウンロード
-const blob = new Blob([JSON.stringify(allResults, null, 2)], {
-  type: "application/json"
-});
-const a = document.createElement("a");
-a.href = URL.createObjectURL(blob);
-a.download = "rakuten_results.json";
-a.click();
-
-// models.json を学習結果で更新（コンソール出力）
-console.log("学習済み models.json:", JSON.stringify(models, null, 2));
+  // ===============================
+  // rakuten_results.json 自動ダウンロード
+  // ===============================
+  const blob = new Blob([JSON.stringify(allResults, null, 2)], {
+    type: "application/json"
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "rakuten_results.json";
+  a.click();
 
   // ===============================
-// models.json 自動ダウンロード保存（半自動）
-// ===============================
-const blob2 = new Blob([JSON.stringify(models, null, 2)], {
-  type: "application/json"
-});
-const a2 = document.createElement("a");
-a2.href = URL.createObjectURL(blob2);
-a2.download = "models_updated.json";
-a2.click();
-
+  // models_updated.json 自動ダウンロード（学習結果）
+  // ===============================
+  const blob2 = new Blob([JSON.stringify(models, null, 2)], {
+    type: "application/json"
+  });
+  const a2 = document.createElement("a");
+  a2.href = URL.createObjectURL(blob2);
+  a2.download = "models_updated.json";
+  a2.click();
 }
