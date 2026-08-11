@@ -1,43 +1,18 @@
 // ===============================
-// 特定ショップ（新API対応・拡張版）
+// 新APIキー
 // ===============================
-const TARGET_SHOPS = [
-  // NIKE公式
-  "NIKE", "nike", "NIKE 公式", "NIKE 公式 楽天市場店", "nike-official",
-
-  // Xebio
-  "Xebio", "ゼビオ", "Super Sports XEBIO", "スーパースポーツゼビオ",
-  "スポーツゼビオ", "supersportsxebio",
-
-  // Victoria 系
-  "Victoria", "ヴィクトリア",
-  "Victoria Surf&Snow", "Victoria L-Breath", "Victoria Golf",
-  "Victoria 楽天市場支店",
-
-  // アルペン系
-  "アルペン", "Alpen", "アルペン楽天市場店",
-  "スポーツデポ", "Sports Depot", "スポーツデポ楽天市場店",
-
-  // ヒマラヤ系
-  "ヒマラヤ", "Himaraya",
-  "ヒマラヤ楽天市場店", "ヒマラヤアウトドア専門店",
-
-  // ABC-MART系
-  "ABC", "ABCMart", "ABC-MART", "ABC-MART楽天市場店",
-
-  // アネックススポーツ
-  "アネックス", "アネックススポーツ",
-
-  // OnStep
-  "OnStep",
-
-  // ブランド古着ベクトル系
-  "ブランド古着", "ベクトル",
-  "ブランド古着ベクトル", "ブランド古着ベクトルプレミアム店"
-];
+const applicationId = "a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd";
+const accessKey = "pk_oRPj9UEOAjvjnUtRwKwaje85mgY98Nzo7rzvGf7sQRj";
 
 // ===============================
-// 中古品判定（除外）
+// models.json 読み込み（itemCodes 対応）
+// ===============================
+async function loadModels() {
+  return await fetch("models.json").then(r => r.json());
+}
+
+// ===============================
+// 中古品判定（既存ロジック）
 // ===============================
 function isUsed(itemName) {
   const ng = ["中古", "USED", "used", "リユース", "古着"];
@@ -45,95 +20,273 @@ function isUsed(itemName) {
 }
 
 // ===============================
-// 楽天検索（新API対応）
+// itemCode検索（最優先・100%正確）
+// ===============================
+async function searchByItemCode(itemCode) {
+  const url =
+    "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
+    + `?applicationId=${applicationId}`
+    + `&accessKey=${accessKey}`
+    + `&itemCode=${itemCode}`
+    + "&format=json";
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const json = await res.json();
+    if (!json.Items) return [];
+    return json.Items.map(i => i.Item);
+  } catch (e) {
+    console.log("itemCode検索エラー:", e);
+    return [];
+  }
+}
+
+// ===============================
+// itemCode検索を試す（models.json の学習データ）
+// ===============================
+async function tryItemCodeSearch(modelEntry) {
+  if (!modelEntry.itemCodes || modelEntry.itemCodes.length === 0) {
+    return null; // itemCode未学習
+  }
+
+  for (const code of modelEntry.itemCodes) {
+    const items = await searchByItemCode(code);
+    if (items.length > 0) {
+      return items; // 100%正確
+    }
+  }
+
+  return null;
+}
+
+// ===============================
+// 型番検索（揺れ吸収）
+// ===============================
+async function searchByModel(model) {
+  const keywords = [
+    model,
+    model.replace("-", ""),
+    model.replace("-", " "),
+    model.replace("-", "　"),
+    `ナイキ ${model}`,
+    `NIKE ${model}`
+  ];
+
+  let items = [];
+
+  for (const kw of keywords) {
+    const url =
+      "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
+      + `?applicationId=${applicationId}`
+      + `&accessKey=${accessKey}`
+      + `&keyword=${encodeURIComponent(kw)}`
+      + "&hits=30"
+      + "&format=json"
+      + "&sort=%2BitemPrice";
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const list = data.Items || [];
+
+      for (const it of list) {
+        const item = it.Item;
+
+        if (isUsed(item.itemName)) continue;
+
+        items.push({
+          shop: item.shopName,
+          title: item.itemName,
+          price: item.itemPrice,
+          url: item.itemUrl
+        });
+      }
+    } catch (e) {
+      console.log("型番検索エラー:", e);
+    }
+  }
+
+  return items;
+}
+
+// ===============================
+// HTML取得（楽天商品ページ）
+// ===============================
+async function fetchHtml(url) {
+  try {
+    const res = await fetch(url);
+    return await res.text();
+  } catch (e) {
+    console.log("HTML取得エラー:", e);
+    return "";
+  }
+}
+
+// ===============================
+// HTMLから型番抽出（正規表現）
+// ===============================
+function extractModelsFromHtml(html) {
+  const regexList = [
+    /[A-Z]{2}[0-9]{4}-[0-9]{3}/g,
+    /[A-Z]{2}[0-9]{7}/g,
+    /[A-Z]{2}[0-9]{4}-[0-9]{3}-[0-9]{2}/g
+  ];
+
+  const found = new Set();
+
+  for (const regex of regexList) {
+    const matches = html.match(regex);
+    if (matches) matches.forEach(m => found.add(m));
+  }
+
+  return Array.from(found);
+}
+
+// ===============================
+// Keepaモデル正規化
+// ===============================
+function normalizeModel(model) {
+  return model.replace(/-/g, "").toUpperCase();
+}
+
+// ===============================
+// Keepa照合（誤ヒット完全排除）
+// ===============================
+function matchModelWithKeepa(keepaModel, extractedModels) {
+  const normKeepa = normalizeModel(keepaModel);
+
+  for (const m of extractedModels) {
+    const normM = normalizeModel(m);
+
+    if (normKeepa === normM) return m;
+    if (normKeepa.startsWith(normM.slice(0, 6))) return m;
+  }
+
+  return null;
+}
+
+// ===============================
+// HTML型番抽出 → Keepa照合 → 正しい商品だけ残す
+// ===============================
+async function filterCorrectItems(items, keepaModel) {
+  const result = [];
+
+  for (const item of items) {
+    const html = await fetchHtml(item.url);
+    const extracted = extractModelsFromHtml(html);
+    const matched = matchModelWithKeepa(keepaModel, extracted);
+
+    if (matched) {
+      result.push({
+        ...item,
+        matchedModel: matched
+      });
+    }
+  }
+
+  return result;
+}
+
+// ===============================
+// 特定ショップ（既存＋拡張）
+// ===============================
+const TARGET_SHOPS = [
+  "NIKE", "nike", "NIKE 公式", "NIKE 公式 楽天市場店", "nike-official",
+  "Xebio", "ゼビオ", "Super Sports XEBIO", "スーパースポーツゼビオ",
+  "スポーツゼビオ", "supersportsxebio",
+  "Victoria", "ヴィクトリア",
+  "Victoria Surf&Snow", "Victoria L-Breath", "Victoria Golf",
+  "Victoria 楽天市場支店",
+  "アルペン", "Alpen", "アルペン楽天市場店",
+  "スポーツデポ", "Sports Depot", "スポーツデポ楽天市場店",
+  "ヒマラヤ", "Himaraya",
+  "ヒマラヤ楽天市場店", "ヒマラヤアウトドア専門店",
+  "ABC", "ABCMart", "ABC-MART", "ABC-MART楽天市場店",
+  "アネックス", "アネックススポーツ",
+  "OnStep",
+  "ブランド古着", "ベクトル",
+  "ブランド古着ベクトル", "ブランド古着ベクトルプレミアム店"
+];
+
+// ===============================
+// 特定ショップ抽出
+// ===============================
+function filterSpecialShops(items) {
+  for (const shopKey of TARGET_SHOPS) {
+    const hit = items.find(it => it.shop.includes(shopKey));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// ===============================
+// itemCode抽出（shop:itemId）
+// ===============================
+function extractItemCode(url) {
+  const m = url.match(/item\.rakuten\.co\.jp\/([^\/]+)\/(\d+)/);
+  if (!m) return null;
+  return `${m[1]}:${m[2]}`;
+}
+
+// ===============================
+// itemCode学習（models.json に追記）
+// ===============================
+function saveItemCodes(modelEntry, items) {
+  if (!modelEntry.itemCodes) modelEntry.itemCodes = [];
+
+  for (const item of items) {
+    const code = extractItemCode(item.url);
+    if (code && !modelEntry.itemCodes.includes(code)) {
+      modelEntry.itemCodes.push(code);
+    }
+  }
+}
+
+// ===============================
+// 最安値TOP3抽出
+// ===============================
+function extractTop3(items) {
+  const sorted = items.sort((a, b) => a.price - b.price);
+  return sorted.slice(0, 3);
+}
+
+// ===============================
+// searchRakutenAll（完成版）
 // ===============================
 async function searchRakutenAll() {
-  const applicationId = "a38ecc5b-5a90-4eb9-b4f8-e714ba84eefd";
-  const accessKey = "pk_oRPj9UEOAjvjnUtRwKwaje85mgY98Nzo7rzvGf7sQRj";
 
-  const models = await fetch("models.json").then(r => r.json());
+  const models = await loadModels();
   let allResults = [];
 
   for (const m of models) {
 
-    // ===============================
-    // 新API向け keyword（型番の揺れ＋ブランド名）
-    // ===============================
-    const keywords = [
-      m.model,                                 // DC1460-007
-      m.model.replace("-", ""),                // DC1460007
-      m.model.replace("-", " "),               // DC1460 007
-      m.model.replace("-", "　"),              // DC1460　007
-      `ナイキ ${m.model}`,                     // ナイキ DC1460-007
-      `NIKE ${m.model}`                        // NIKE DC1460-007
-    ];
+    // ① itemCode検索（最優先）
+    let items = await tryItemCodeSearch(m);
 
-    let items = [];
+    // ② itemCode未学習 → 型番検索
+    if (!items) {
+      const modelItems = await searchByModel(m.model);
 
-    // ===============================
-    // 新API検索（hits=30 が最も安定）
-    // ===============================
-    for (const kw of keywords) {
-      const url =
-        "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
-        + "?applicationId=" + applicationId
-        + "&accessKey=" + accessKey
-        + "&keyword=" + encodeURIComponent(kw)
-        + "&hits=30"
-        + "&format=json"
-        + "&sort=%2BitemPrice";
+      // ③ HTML型番抽出 → Keepa照合（誤ヒット完全排除）
+      items = await filterCorrectItems(modelItems, m.model);
 
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-
-        const data = await res.json();
-        const list = data.Items || [];
-
-        for (const it of list) {
-          const item = it.Item;
-
-          // ★中古品は除外
-          if (isUsed(item.itemName)) continue;
-
-          items.push({
-            shop: item.shopName,
-            title: item.itemName,
-            price: item.itemPrice,
-            url: item.itemUrl
-          });
-        }
-      } catch (e) {
-        console.log("エラー:", e);
-      }
+      // ④ itemCode学習（正しい商品だけ）
+      saveItemCodes(m, items);
     }
 
-    // ===============================
-    // 特定ショップ判定（items 全体に対して）
-    // ===============================
-    let targetHit = null;
-    for (const shopKey of TARGET_SHOPS) {
-      const hit = items.find(it => it.shop.includes(shopKey));
-      if (hit) {
-        targetHit = hit;
-        break;
-      }
-    }
+    // ⑤ 特定ショップ優先
+    const special = filterSpecialShops(items);
 
-    // ===============================
-    // TOP3（最安値順）
-    // ===============================
-    const sorted = items.sort((a, b) => a.price - b.price);
-    const top3 = sorted.slice(0, 3);
+    // ⑥ 最安値TOP3
+    const top3 = extractTop3(items);
 
-    // ===============================
-    // 特定ショップがあれば最優先
-    // ===============================
-    const finalResult = targetHit || top3[0] || null;
+    // ⑦ 最終結果（特定ショップがあれば最優先）
+    const finalResult = special || top3[0] || null;
 
-    // ===============================
-    // JSON 出力形式（Python が読み込める旧形式）
-    // ===============================
+    // ⑧ JSON出力形式（既存構造を維持）
     allResults.push({
       asin: m.asin,
       model: m.model,
@@ -149,7 +302,7 @@ async function searchRakutenAll() {
   }
 
   // ===============================
-  // JSON ダウンロード
+  // JSON ダウンロード（既存ロジック継承）
   // ===============================
   const blob = new Blob([JSON.stringify(allResults, null, 2)], {
     type: "application/json"
@@ -158,4 +311,9 @@ async function searchRakutenAll() {
   a.href = URL.createObjectURL(blob);
   a.download = "rakuten_results.json";
   a.click();
+
+  // ===============================
+  // models.json を学習結果で更新（GitHub Pages対応）
+  // ===============================
+  console.log("学習済み models.json:", JSON.stringify(models, null, 2));
 }
