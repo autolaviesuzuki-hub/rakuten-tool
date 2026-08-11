@@ -166,7 +166,19 @@ async function searchRakutenAll() {
     });
   }
 
-// ===============================
+// JSONダウンロード
+const blob = new Blob([JSON.stringify(allResults, null, 2)], {
+  type: "application/json"
+});
+const a = document.createElement("a");
+a.href = URL.createObjectURL(blob);
+a.download = "rakuten_results.json";
+a.click();
+
+// models.json を学習結果で更新（コンソール出力）
+console.log("学習済み models.json:", JSON.stringify(models, null, 2));
+
+  // ===============================
 // models.json 自動ダウンロード保存（半自動）
 // ===============================
 const blob2 = new Blob([JSON.stringify(models, null, 2)], {
