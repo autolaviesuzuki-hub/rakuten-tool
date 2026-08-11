@@ -166,12 +166,15 @@ async function searchRakutenAll() {
     });
   }
 
-  // JSONダウンロード
-  const blob = new Blob([JSON.stringify(allResults, null, 2)], {
-    type: "application/json"
-  });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "rakuten_results.json";
-  a.click();
+// ===============================
+// models.json 自動ダウンロード保存（半自動）
+// ===============================
+const blob2 = new Blob([JSON.stringify(models, null, 2)], {
+  type: "application/json"
+});
+const a2 = document.createElement("a");
+a2.href = URL.createObjectURL(blob2);
+a2.download = "models_updated.json";
+a2.click();
+
 }
