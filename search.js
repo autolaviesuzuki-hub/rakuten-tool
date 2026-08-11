@@ -12,7 +12,7 @@ async function loadModels() {
 }
 
 // ===============================
-// 429対策：軽い待機
+// 待機（キュー方式用）
 // ===============================
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -51,7 +51,7 @@ async function tryItemCodeSearch(modelEntry) {
 }
 
 // ===============================
-// 型番検索（429完全対策版：キュー方式）
+// 型番検索（キュー方式）
 // ===============================
 function buildUrl(keyword) {
   return (
@@ -67,13 +67,10 @@ function buildUrl(keyword) {
 
 async function searchByModel(model) {
 
-  // 429対策：キーワードは1回だけ
-  const keyword = model;
+  // キュー方式：1件ずつ処理するために1秒待機
+  await sleep(1000);
 
-  // 429完全対策：待機時間を増やす
-  await sleep(800);
-
-  const res = await fetch(buildUrl(keyword));
+  const res = await fetch(buildUrl(model));
   if (!res.ok) return [];
 
   const data = await res.json();
@@ -132,30 +129,53 @@ function extractTop3(items) {
 }
 
 // ===============================
-// メイン処理：searchRakutenAll（429完全対策版）
+// メイン処理：searchRakutenAll（キュー方式）
 // ===============================
 async function searchRakutenAll() {
 
   const models = await loadModels();
   let allResults = [];
 
+  // 型番検索キュー
+  let queue = [];
+
   for (const m of models) {
 
     // ① itemCode検索（最優先）
     let items = await tryItemCodeSearch(m);
 
-    // ② itemCode検索が失敗したモデルだけ型番検索
+    // ② itemCode検索が失敗したモデルだけキューに追加
     if (!items) {
-      items = await searchByModel(m.model);
+      queue.push(m);
+      continue;
     }
 
-    // ③ 特定ショップ優先
+    // itemCode成功モデルは即処理
     const special = filterSpecialShops(items);
-
-    // ④ 最安値TOP3
     const top3 = extractTop3(items);
+    const finalResult = special || top3[0] || null;
 
-    // ⑤ 最終結果
+    allResults.push({
+      asin: m.asin,
+      model: m.model,
+      size: m.size,
+      shop: finalResult ? finalResult.shop : null,
+      title: finalResult ? finalResult.title : null,
+      price: finalResult ? finalResult.price : null,
+      url: finalResult ? finalResult.url : null,
+      top3: top3
+    });
+  }
+
+  // ===============================
+  // ③ 型番検索キューを1件ずつ処理（429完全対策）
+  // ===============================
+  for (const m of queue) {
+
+    const items = await searchByModel(m.model);
+
+    const special = filterSpecialShops(items);
+    const top3 = extractTop3(items);
     const finalResult = special || top3[0] || null;
 
     allResults.push({
@@ -180,15 +200,4 @@ async function searchRakutenAll() {
   a.href = URL.createObjectURL(blob);
   a.download = "rakuten_results.json";
   a.click();
-
-  // ===============================
-  // models_updated.json 自動ダウンロード（学習結果）
-  // ===============================
-  const blob2 = new Blob([JSON.stringify(models, null, 2)], {
-    type: "application/json"
-  });
-  const a2 = document.createElement("a");
-  a2.href = URL.createObjectURL(blob2);
-  a2.download = "models_updated.json";
-  a2.click();
 }
