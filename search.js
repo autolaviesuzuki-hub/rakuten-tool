@@ -75,7 +75,7 @@ async function searchByModel(model) {
   for (const kw of keywords) {
 
     // 429対策：API呼び出し間に待機
-    await sleep(200);
+    await sleep(500);
 
     const res = await fetch(buildUrl(kw));
     if (!res.ok) continue;
