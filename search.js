@@ -19,38 +19,6 @@ function sleep(ms) {
 }
 
 // ===============================
-// itemCode検索（最優先）
-// ===============================
-async function searchByItemCode(itemCode) {
-  const url =
-    "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
-    + `?applicationId=${applicationId}`
-    + `&accessKey=${accessKey}`
-    + `&itemCode=${itemCode}`
-    + "&format=json";
-
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const json = await res.json();
-    if (!json.Items) return [];
-    return json.Items.map(i => i.Item);
-  } catch {
-    return [];
-  }
-}
-
-async function tryItemCodeSearch(modelEntry) {
-  if (!modelEntry.itemCodes || modelEntry.itemCodes.length === 0) return null;
-
-  for (const code of modelEntry.itemCodes) {
-    const items = await searchByItemCode(code);
-    if (items.length > 0) return items;
-  }
-  return null;
-}
-
-// ===============================
 // 型番検索（キュー方式）
 // ===============================
 function buildUrl(keyword) {
@@ -129,7 +97,7 @@ function extractTop3(items) {
 }
 
 // ===============================
-// メイン処理：searchRakutenAll（キュー方式）
+// メイン処理：searchRakutenAll（itemCode無効化＋キュー方式）
 // ===============================
 async function searchRakutenAll() {
 
@@ -141,34 +109,15 @@ async function searchRakutenAll() {
 
   for (const m of models) {
 
-    // ① itemCode検索（最優先）
-    let items = await tryItemCodeSearch(m);
+    // itemCode検索を完全に無効化
+    let items = null;
 
-    // ② itemCode検索が失敗したモデルだけキューに追加
-    if (!items) {
-      queue.push(m);
-      continue;
-    }
-
-    // itemCode成功モデルは即処理
-    const special = filterSpecialShops(items);
-    const top3 = extractTop3(items);
-    const finalResult = special || top3[0] || null;
-
-    allResults.push({
-      asin: m.asin,
-      model: m.model,
-      size: m.size,
-      shop: finalResult ? finalResult.shop : null,
-      title: finalResult ? finalResult.title : null,
-      price: finalResult ? finalResult.price : null,
-      url: finalResult ? finalResult.url : null,
-      top3: top3
-    });
+    // 全モデルをキューに追加
+    queue.push(m);
   }
 
   // ===============================
-  // ③ 型番検索キューを1件ずつ処理（429完全対策）
+  // 型番検索キューを1件ずつ処理（429完全対策）
   // ===============================
   for (const m of queue) {
 
