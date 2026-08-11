@@ -51,7 +51,7 @@ async function tryItemCodeSearch(modelEntry) {
 }
 
 // ===============================
-// 型番検索（高速化＋429対策）
+// 型番検索（429対策版）
 // ===============================
 function buildUrl(keyword) {
   return (
